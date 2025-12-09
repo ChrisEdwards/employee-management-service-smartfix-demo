@@ -66,10 +66,7 @@ jobs:
           formatting_command: ${{ env.FORMATTING_COMMAND }}
 
           # Use AWS Bedrock with Bearer Token
-          use_contrast_llm: false
-          agent_model: 'bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0'
-          aws_bearer_token_bedrock: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
-          aws_region: ${{ vars.AWS_REGION }}
+          use_contrast_llm: true
 
   # Notify Contrast when SmartFix PRs are merged
   handle_pr_merge:
