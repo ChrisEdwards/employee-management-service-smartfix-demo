@@ -75,8 +75,13 @@ public class EmployeeService {
   }
 
   public String executeCommand(String command) {
+    String validatedCommand = validateCommand(command);
+    if (validatedCommand == null) {
+      return "Error: Invalid command. Only 'ls', 'pwd', and 'date' commands are allowed.";
+    }
+
     try {
-      Process process = Runtime.getRuntime().exec(command);
+      Process process = Runtime.getRuntime().exec(validatedCommand);
 
       BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
       StringBuilder output = new StringBuilder();
@@ -96,5 +101,23 @@ public class EmployeeService {
     } catch (Exception e) {
       return "Error executing command: " + e.getMessage();
     }
+  }
+
+  private String validateCommand(String command) {
+    if (command == null || command.trim().isEmpty()) {
+      return null;
+    }
+
+    String trimmedCommand = command.trim();
+
+    if (trimmedCommand.equals("ls")) {
+      return "ls";
+    } else if (trimmedCommand.equals("pwd")) {
+      return "pwd";
+    } else if (trimmedCommand.equals("date")) {
+      return "date";
+    }
+
+    return null;
   }
 }
