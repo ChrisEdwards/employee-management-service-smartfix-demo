@@ -1,0 +1,116 @@
+# Contrast AI SmartFix - Automated Security Fix Generation
+#
+# This workflow automatically creates pull requests to fix security
+# vulnerabilities detected by Contrast Security.
+#
+# Schedule: Runs daily at midnight UTC (adjustable below)
+# Manual: Can be triggered from the Actions tab anytime
+
+name: Contrast AI SmartFix
+
+on:
+  pull_request:
+    types:
+      - closed
+  schedule:
+    - cron: '0 0 * * *'  # Daily at midnight UTC
+  workflow_dispatch:      # Allows manual triggering
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  # Contrast Application ID - extracted from your Contrast URL
+  CONTRAST_APP_ID: '3d66538f-da29-4579-8349-792a9c0a6230'
+
+  # Build configuration - detected from your project
+  BUILD_COMMAND: 'mvn clean test -B'
+  FORMATTING_COMMAND: 'mvn spotless:apply'
+
+jobs:
+  generate_fixes:
+    name: Generate Security Fixes
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Run Contrast AI SmartFix
+        uses: Contrast-Security-OSS/contrast-ai-smartfix-action@v1
+        with:
+          # Contrast connection (uses secrets/variables you'll configure next)
+          contrast_host: ${{ vars.CONTRAST_HOST }}
+          contrast_org_id: ${{ vars.CONTRAST_ORG_ID }}
+          contrast_app_id: ${{ env.CONTRAST_APP_ID }}
+          contrast_authorization_key: ${{ secrets.CONTRAST_AUTHORIZATION_KEY }}
+          contrast_api_key: ${{ secrets.CONTRAST_API_KEY }}
+
+          # GitHub settings
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          base_branch: ${{ github.event.repository.default_branch }}
+
+          # Build configuration
+          build_command: ${{ env.BUILD_COMMAND }}
+          formatting_command: ${{ env.FORMATTING_COMMAND }}
+
+          # Use AWS Bedrock with Bearer Token
+          use_contrast_llm: false
+          agent_model: 'bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0'
+          aws_bearer_token_bedrock: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
+          aws_region: ${{ vars.AWS_REGION }}
+
+  # Notify Contrast when SmartFix PRs are merged
+  handle_pr_merge:
+    name: Handle PR Merge
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true && contains(github.event.pull_request.head.ref, 'smartfix/remediation-')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+      - uses: Contrast-Security-OSS/contrast-ai-smartfix-action@v1
+        with:
+          run_task: merge
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          contrast_host: ${{ vars.CONTRAST_HOST }}
+          contrast_org_id: ${{ vars.CONTRAST_ORG_ID }}
+          contrast_app_id: ${{ env.CONTRAST_APP_ID }}
+          contrast_authorization_key: ${{ secrets.CONTRAST_AUTHORIZATION_KEY }}
+          contrast_api_key: ${{ secrets.CONTRAST_API_KEY }}
+        env:
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+
+  # Notify Contrast when SmartFix PRs are closed without merging
+  handle_pr_closed:
+    name: Handle PR Close
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged == false && contains(github.event.pull_request.head.ref, 'smartfix/remediation-')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: Contrast-Security-OSS/contrast-ai-smartfix-action@v1
+        with:
+          run_task: closed
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          contrast_host: ${{ vars.CONTRAST_HOST }}
+          contrast_org_id: ${{ vars.CONTRAST_ORG_ID }}
+          contrast_app_id: ${{ env.CONTRAST_APP_ID }}
+          contrast_authorization_key: ${{ secrets.CONTRAST_AUTHORIZATION_KEY }}
+          contrast_api_key: ${{ secrets.CONTRAST_API_KEY }}
+        env:
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
