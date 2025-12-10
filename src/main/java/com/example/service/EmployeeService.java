@@ -75,8 +75,14 @@ public class EmployeeService {
   }
 
   public String executeCommand(String command) {
+    if (!isValidCommand(command)) {
+      return "Error: Invalid or unauthorized command";
+    }
+
     try {
-      Process process = Runtime.getRuntime().exec(command);
+      String[] commandArray = parseCommand(command);
+      ProcessBuilder processBuilder = new ProcessBuilder(commandArray);
+      Process process = processBuilder.start();
 
       BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
       StringBuilder output = new StringBuilder();
@@ -96,5 +102,38 @@ public class EmployeeService {
     } catch (Exception e) {
       return "Error executing command: " + e.getMessage();
     }
+  }
+
+  private boolean isValidCommand(String command) {
+    if (command == null || command.trim().isEmpty()) {
+      return false;
+    }
+
+    String normalizedCommand = command.trim().toLowerCase();
+
+    // Check for command injection characters
+    if (normalizedCommand.contains(";")
+        || normalizedCommand.contains("|")
+        || normalizedCommand.contains("&")
+        || normalizedCommand.contains("`")
+        || normalizedCommand.contains("$(")
+        || normalizedCommand.contains(">")
+        || normalizedCommand.contains("<")) {
+      return false;
+    }
+
+    String[] allowedCommands = {"ls", "pwd", "date", "whoami", "echo"};
+
+    for (String allowed : allowedCommands) {
+      if (normalizedCommand.equals(allowed) || normalizedCommand.startsWith(allowed + " ")) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private String[] parseCommand(String command) {
+    return command.trim().split("\\s+");
   }
 }
