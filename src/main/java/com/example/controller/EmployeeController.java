@@ -1,5 +1,7 @@
 package com.example.controller;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -7,6 +9,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.example.model.User;
 import com.example.service.EmployeeService;
@@ -39,13 +42,29 @@ public class EmployeeController {
 
   @GetMapping("/redirect")
   public ResponseEntity<String> redirectExample(@RequestParam String url) {
+    String sanitizedUrl = sanitizeHeaderValue(url);
+
     HttpHeaders headers = new HttpHeaders();
 
-    headers.add("Location", url);
+    headers.add("Location", sanitizedUrl);
 
-    headers.add("X-Custom-Header", "Referrer: " + url);
+    headers.add("X-Custom-Header", "Referrer: " + sanitizedUrl);
 
-    return new ResponseEntity<>("Redirecting to: " + url, headers, HttpStatus.FOUND);
+    return new ResponseEntity<>("Redirecting to: " + sanitizedUrl, headers, HttpStatus.FOUND);
+  }
+
+  private String sanitizeHeaderValue(String value) {
+    if (value == null) {
+      return "";
+    }
+
+    try {
+      new URI(value);
+    } catch (URISyntaxException e) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid URL format");
+    }
+
+    return value.replaceAll("[\\r\\n]", "");
   }
 
   @PostMapping("/update-account")
